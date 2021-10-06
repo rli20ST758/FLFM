@@ -1,6 +1,4 @@
 # LFLM
-Latent Factor Model for Multivariate Functional Data
-
 This project provides supplementary materials for the paper, Latent Factor Model for Multivariate Functional Data.
 - The proposed method is implemented in the function FLFM() in the folder "R code";
 - An exmple to run FLFM() is shown in the file demo.R;
