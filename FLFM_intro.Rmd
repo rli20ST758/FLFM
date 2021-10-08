@@ -14,7 +14,7 @@ In this document, a complete implementation of the functional latent factor mode
 
 Section 1 gives the code to generate datasets (function `GenerateData`) which are used to evaluate FLFM. The detail of the data from the `GenerateData` function is shown in the paper. 
 
-Section 2 shows examples of how to use the function `FLFM` to fit FLFM and sparse FLFM. With the fitted model, users can use the function `predict.FLFMA` to predict data for test sets. Since the selection of tunning parameters takes a long time (about 20 minutes), we commented this part by pound symbol. If you are interest in cross-validation, please delete pound symbols in this part and run the code. 
+Section 2 shows examples of how to use the function `FLFM` to fit FLFM and sparse FLFM. With the fitted model, users can use the function `predict.FLFM` to predict data for test sets. Since the selection of tunning parameters takes a long time (about 20 minutes), we commented this part by pound symbol. If you are interest in cross-validation, please delete pound symbols in this part and run the code. 
 
 Section 3 visualizes outputs, including the estimated orthonormal coefficient vectors and the estimated covriance functions of shared latent factors.
 
@@ -188,7 +188,7 @@ p1 <- ggplot(longData, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="The estimated orthonomal coefficient vectors given by FLFM") + 
+       title="Estimated orthonomal coefficient vectors by FLFM") + 
   labs(fill="Value") + theme_bw() +
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
   theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
@@ -201,7 +201,7 @@ p2 <- ggplot(longData_sparse, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="The estimated coefficient vectors given by sparse FLFM") + 
+       title="Estimated coefficient vectors by sparse FLFM") + 
   labs(fill="Value") + theme_bw() +
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
   theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
@@ -214,7 +214,7 @@ p3 <- ggplot(longData_true, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="The true orthonomal coefficient vectors") + 
+       title="True orthonomal coefficient vectors") + 
   labs(fill="Value") + theme_bw() + 
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
   theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
@@ -252,19 +252,19 @@ p1 <- ggplot(df_est, aes(x=x, y=y, z=Value, fill=Value)) +
   facet_grid(.~label) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
   labs(x="argvals", y="argvals", 
-       title="The estimated covriance functions of shared latent factors given by FLFM.") 
+       title="Estimated covriance functions of shared latent factors by FLFM.") 
 p2 <- ggplot(dfs_est, aes(x=x, y=y, z=Value, fill=Value)) + 
   geom_tile() + coord_equal() + geom_contour(color = "white", alpha = 0.5) + 
   facet_grid(.~label) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
   labs(x="argvals", y="argvals", 
-       title="The estimated covriance functions given by sparse FLFM.") 
+       title="Estimated covriance functions by sparse FLFM.") 
 p3 <- ggplot(df_true, aes(x=x, y=y, z=Value, fill=Value)) + 
   geom_tile() + coord_equal() + geom_contour(color = "white", alpha = 0.5) + 
   facet_grid(.~label) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
   labs(x="argvals", y="argvals", 
-       title="The ture covriance functions of shared latent factors.") 
+       title="Ture covriance functions of shared latent factors.") 
 
 figure <- grid.arrange(p1, p2, p3, nrow=3)
 ```
