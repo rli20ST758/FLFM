@@ -210,10 +210,10 @@ return(result)
 if(is.null(lambda)==TRUE){
 fit = optim(0,fbps_cov_gcv,method=method,control=control,
   lower=lower,upper=upper)
-if(fit$convergence>0) {
-  expression = paste("Smoothing failed! The code is:",fit$convergence)
-  print(expression)
-}
+# if(fit$convergence>0) {
+#   expression = paste("Smoothing failed! The code is:",fit$convergence)
+#   print(expression)
+# }
 lambda = exp(fit$par)
 }
 est = fbps_cov_est(log(lambda))
