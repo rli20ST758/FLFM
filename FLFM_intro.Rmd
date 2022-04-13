@@ -14,16 +14,16 @@ In this document, a complete implementation of the functional latent factor mode
 
 Section 1 gives the code to generate datasets (function `GenerateData`) which are used to evaluate FLFM. The detail of the data from the `GenerateData` function is shown in the paper. 
 
-Section 2 shows examples of how to use the function `FLFM` to fit FLFM and sparse FLFM. With the fitted model, users can use the function `predict.FLFM` to predict data for test sets. Since the selection of tunning parameters takes a long time (about 20 minutes), we commented this part by pound symbol. If you are interest in cross-validation, please delete pound symbols in this part and run the code. 
+Section 2 shows examples of how to use the function `FLFM` to fit FLFM and sparse FLFM. With the fitted model, users can use the function `predict.FLFM` to predict data for test sets. Since selections of tunning parameters takes a long time (about 20 minutes), we commented this part by pound symbol. If you are interest in cross-validation, please delete pound symbols in this part and run the code. 
 
-Section 3 visualizes outputs, including the estimated orthonormal coefficient vectors and the estimated covriance functions of shared latent factors.
+Section 3 visualizes outputs, including the estimated orthonormal loading coefficient vectors and the estimated covariance functions of shared latent factors.
 
 We compare FLFM with MFPCA on the same dataset in Section 4. To measure the estimation accuracy of covariance functions, we use the relative integrated squared error (RISE). For prediction accuracy, we draw $100$ additional subjects as the test dataset.
 
 
 
 
-```{r message=FALSE, echo=TRUE}
+```{r message=FALSE, warning=FALSE}
 require(Rcpp)
 require(RSpectra)
 require(refund)
@@ -173,7 +173,7 @@ time2 - time1
 
 
 ## 3. Visualize results
-## 3.1 Visualize the estimated orthonormal coefficient vectors.
+## 3.1 Visualize the estimated orthonormal loading coefficient vectors.
 ```{r fig.width=10, fig.height=5}
 colnames(beta_hat) <- 1:L_true
 rownames(beta_hat) <- 1:J
@@ -188,7 +188,7 @@ p1 <- ggplot(longData, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="Estimated orthonomal coefficient vectors by FLFM") + 
+       title="Estimated orthonormal loading vectors by FLFM") + 
   labs(fill="Value") + theme_bw() +
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
   theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
@@ -201,7 +201,7 @@ p2 <- ggplot(longData_sparse, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="Estimated coefficient vectors by sparse FLFM") + 
+       title="Estimated loading vectors by sparse FLFM") + 
   labs(fill="Value") + theme_bw() +
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
   theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
@@ -214,10 +214,11 @@ p3 <- ggplot(longData_true, aes(x=rep(1:J,L_true), y=rep(1:L_true,each=J))) +
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient2(low="black",mid="white",high="red",midpoint=0) +
   labs(x="Functional outcomes", y=" ", 
-       title="True orthonomal coefficient vectors") + 
+       title="True orthonormal loading vectors") + 
   labs(fill="Value") + theme_bw() + 
   scale_y_discrete(limits=c("beta1","beta2","beta3"),labels=my.labs) +
-  theme(axis.text.x=element_text(size=15, angle=0, vjust=0.3),
+  theme(strip.background = element_rect(fill = "white"),
+        axis.text.x=element_text(size=15, angle=0, vjust=0.3),
         axis.text.y=element_text(size=15), 
         axis.title.x = element_text(size = 18),
         axis.title.y = element_text(size = 22),
@@ -231,40 +232,43 @@ figure <- grid.arrange(p1, p2, p3, ncol=2, nrow=2)
 ```{r fig.width=12, fig.height=8}
 x = rep(argvals, t)
 y = rep(argvals, each=t)
-df1 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[1]])), label=rep("C1",t^2))
-df2 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[2]])), label=rep("C2",t^2))
-df3 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[3]])), label=rep("C3",t^2))
+df1 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[1]])), label=rep("C[1]",t^2))
+df2 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[2]])), label=rep("C[2]",t^2))
+df3 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_hat[[3]])), label=rep("C[3]",t^2))
 df_est <- rbind(df1,df2,df3)
 
-df4 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[1]])), label=rep("C1",t^2))
-df5 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[2]])), label=rep("C2",t^2))
-df6 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[3]])), label=rep("C3",t^2))
+df4 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[1]])), label=rep("C[1]",t^2))
+df5 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[2]])), label=rep("C[2]",t^2))
+df6 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(sC_hat[[3]])), label=rep("C[3]",t^2))
 dfs_est <- rbind(df4,df5,df6)
 
-df7 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[1]])), label=rep("C1",t^2))
-df8 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[2]])), label=rep("C2",t^2))
-df9 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[3]])), label=rep("C3",t^2))
+df7 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[1]])), label=rep("C[1]",t^2))
+df8 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[2]])), label=rep("C[2]",t^2))
+df9 <- data.frame(x=x, y=y, Value=as.vector(as.matrix(C_true[[3]])), label=rep("C[3]",t^2))
 df_true <- rbind(df7,df8,df9)
 
 
 p1 <- ggplot(df_est, aes(x=x, y=y, z=Value, fill=Value)) + 
   geom_tile() + coord_equal() + geom_contour(color = "white", alpha = 0.5) + 
-  facet_grid(.~label) + theme_bw() +
+  facet_grid(.~label, labeller = label_parsed) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
-  labs(x="argvals", y="argvals", 
-       title="Estimated covriance functions of shared latent factors by FLFM.") 
+  theme(strip.background = element_rect(fill = "white")) + 
+  labs(x="argvals", y="argvals",  
+       title="Estimated covariance functions of shared latent factors by FLFM.") 
 p2 <- ggplot(dfs_est, aes(x=x, y=y, z=Value, fill=Value)) + 
   geom_tile() + coord_equal() + geom_contour(color = "white", alpha = 0.5) + 
-  facet_grid(.~label) + theme_bw() +
+  facet_grid(.~label, labeller = label_parsed) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
+  theme(strip.background = element_rect(fill = "white")) + 
   labs(x="argvals", y="argvals", 
-       title="Estimated covriance functions by sparse FLFM.") 
+       title="Estimated covariance functions by sparse FLFM.") 
 p3 <- ggplot(df_true, aes(x=x, y=y, z=Value, fill=Value)) + 
   geom_tile() + coord_equal() + geom_contour(color = "white", alpha = 0.5) + 
-  facet_grid(.~label) + theme_bw() +
+  facet_grid(.~label, labeller = label_parsed) + theme_bw() +
   scale_fill_distiller(palette="Spectral", na.value="white") +
+  theme(strip.background = element_rect(fill = "white")) + 
   labs(x="argvals", y="argvals", 
-       title="Ture covriance functions of shared latent factors.") 
+       title="Ture covariance functions of shared latent factors.") 
 
 figure <- grid.arrange(p1, p2, p3, nrow=3)
 ```
@@ -272,7 +276,7 @@ figure <- grid.arrange(p1, p2, p3, nrow=3)
 
 ## 4. Compare FLFM with MFPCA
 
-We compare FLFM with MFPCA on the same dataset. The relative integrated squared error (RISE) is used to measure the estimation accuracy of covariance functions. For prediction accuracy, we draw $100$ additional subjects as the test dataset. Details of RISE and prediction error are shown in the paper. 
+We compare FLFM with MFPCA on the same dataset. The relative integrated squared error (RISE) is used to measure the estimation accuracy of covariance functions. For prediction accuracy, we draw $100$ additional subjects as the test dataset. Details of RISE and prediction errors are shown in the paper. 
 
 ## 4.1 Get estimated results by MFPCA.
 
