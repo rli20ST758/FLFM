@@ -1,5 +1,5 @@
 
-FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95,
+LFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95,
                 initial=list(C=NULL,beta=NULL,G=NULL,sigma2=NULL),
                 knots=35, p=3, m=2, tol=1e-4, Nmax=200, fit=FALSE) {
   ############################################################ 
@@ -9,38 +9,19 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
   #Y[[j]] is an (Nsubj x length(argvals)) matrix of functional data for Nsubj subjects observed on argvals.
   #Nsubj -- number of subjects
   #L -- number of reduced dimensions
-  #sparse -- whether to update beta by sparse pca, default to FALSE. 
-  #rho -- the penalty parameter for sparse pca, only useful when "sparse=TRUE". 
-  #pve1 -- the proportion of variance explained for joint terms, defuault to 0.95. 
-  #pve2 -- the proportion of variance explained for outcome-specific terms, defuault to 0.95. 
+  #sparse -- whether to update beta by sparse pca with default FALSE. 
+  #rho -- the penalty parameter for sparse pca, only useful when sparse is TRUE. 
+  #pve1 -- the proportion of variance explained for joint terms, defu=ault to 0.95. 
+  #pve2 -- the proportion of variance explained for outcome-specific terms, defu=ault to 0.95. 
   #initial --  the initial values of parameters for the iteration. It can be from cross-validation for L. 
-  #            When "sparse=TRUE", it highly recommends to set initial values as the estimation when "sparse=FALSE".
-  #knots -- the number of equidistant knots for all dimensions; defaults to 35
+  #            For sparse=TRUE, it highly recommends to set initial values as the estimation for sparse=FALSE.
+  #knots -- list of two vectors of knots or number of equidistant knots for all dimensions; defaults to 35
   #p -- degrees of B-splines; defaults to 3; details see fbps
   #m -- order of differencing penalty; defaults to 2; details see fbps
   #tol -- tolerance for iteration, default to 10e-4
   #Nmax -- the number of maximal iteration, default to 200
-  #fit -- logical with default FALSE. If TRUE, get the fitted values and scores
+  #fit -- Logical with default FALSE. If TRUE, get the fitted values and scores
   ############################################################ 
-  require(Rcpp)
-  require(RSpectra)
-  require(refund)
-  require(face)
-  require(splines)
-  require(MASS)
-  require(fda)
-  require(Matrix)
-  require(fields)
-  require(rARPACK)
-  require(quadprog)
-  require(elasticnet)
-  require(pracma)
-  require(mgcv)
-  
-  # source("./R code/fbps.cov.R") # for smooth covariance matrices
-  # source("./R code/spca_seqADMM.R") # for sparse beta
-  # sourceCpp("./R code/eigendecomp.cpp") # for sparse beta
-  # sourceCpp("./R code/MatrixMtp.cpp") # for sparse beta
   
   t <- length(argvals)
   J <- length(Y)
@@ -67,7 +48,7 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
   ############################################
   ####step 2: Estimate parameters by iteration
   ############################################
-  # initialize the values of parameters
+  # Initilize the values of parameters
   diff_C <- 1
   diff_beta <- 1
   diff_G <- 1
@@ -162,27 +143,40 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
     if(num==1){return(lambda_C[[x]]*phi[[x]]%*%t(phi[[x]]))}
     return(Reduce("+", lapply(1:num, function(y){lambda_C[[x]][y]*phi[[x]][,y]%*%t(phi[[x]][,y])})))
   })
-
   # Get eigen components of G by pve2
   eigens_G <- lapply(G_hat0, function(x){eigen(x)})
   lambda_G0 <- lapply(eigens_G, function(x){(x$value/(t-1))[which(x$value>0)]})
-  order_lambda_G <- sort(unlist(lambda_G0), decreasing=TRUE) #order all lambda_G
-  lambda_G_pve <- order_lambda_G/sum(order_lambda_G)
-  lambda_G_star <- order_lambda_G[which(cumsum(lambda_G_pve)>pve2)[1]]
-  lambda_G <- lapply(lambda_G0,function(x){ #eigenvalues
-    num <- sum(x>=lambda_G_star)
-    if(num==0){return(NULL)}
-    return(x[1:num])})
+  lambda_G <- lapply(1:J,function(j){ #eigenvalues
+    idx <- which(cumsum(lambda_G0[[j]]/sum(lambda_G0[[j]]))>pve2)[1]
+    return(lambda_G0[[j]][1:idx]) })
   psi <- lapply(1:J, function(x){ #eigenvectors
     eigenvec <- (eigens_G[[x]])$vectors * sqrt(t-1)
-    if(length(lambda_G[[x]])==0) NULL
-    else as.matrix(eigenvec[,1:length(lambda_G[[x]])]) })
+    as.matrix(eigenvec[,1:length(lambda_G[[x]])])
+    })
   G_hat <- lapply(1:J, function(x){
     num <- length(lambda_G[[x]])
-    if(num==0){return(NULL)}
-    if(num==1){return(lambda_G[[x]]*psi[[x]]%*%t(psi[[x]]))}
     return(Reduce("+", lapply(1:num, function(y){lambda_G[[x]][y]*psi[[x]][,y]%*%t(psi[[x]][,y])})))
   })
+  # Get eigen components of G by pve2
+  # eigens_G <- lapply(G_hat0, function(x){eigen(x)})
+  # lambda_G0 <- lapply(eigens_G, function(x){(x$value/(t-1))[which(x$value>0)]})
+  # order_lambda_G <- sort(unlist(lambda_G0), decreasing=TRUE) #order all lambda_G
+  # lambda_G_pve <- order_lambda_G/sum(order_lambda_G)
+  # lambda_G_star <- order_lambda_G[which(cumsum(lambda_G_pve)>pve2)[1]]
+  # lambda_G <- lapply(lambda_G0,function(x){ #eigenvalues
+  #   num <- sum(x>=lambda_G_star)
+  #   if(num==0){return(NULL)}
+  #   return(x[1:num])})
+  # psi <- lapply(1:J, function(x){ #eigenvectors
+  #   eigenvec <- (eigens_G[[x]])$vectors * sqrt(t-1)
+  #   if(length(lambda_G[[x]])==0) NULL
+  #   else as.matrix(eigenvec[,1:length(lambda_G[[x]])]) })
+  # G_hat <- lapply(1:J, function(x){
+  #   num <- length(lambda_G[[x]])
+  #   if(num==0){return(NULL)}
+  #   if(num==1){return(lambda_G[[x]]*psi[[x]]%*%t(psi[[x]]))}
+  #   return(Reduce("+", lapply(1:num, function(y){lambda_G[[x]][y]*psi[[x]][,y]%*%t(psi[[x]][,y])})))
+  # })
 
   
   ######################################
@@ -190,7 +184,7 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
   ######################################
   Yhat <- NULL
   xi <- NULL
-  eta <- NULL
+  zeta <- NULL
 
   # set NULL to 0
   lambda_C_temp = lambda_C
@@ -226,13 +220,13 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
     MatG <- - invD%*%C%*%MatE
     MatH <- invD - invD%*%C%*%MatF
     part_xi <- MatE%*%t(Mat2) + MatF%*%bdiag(Mat4)
-    part_eta <- MatG%*%t(Mat2) + MatH%*%bdiag(Mat4)
+    part_zeta <- MatG%*%t(Mat2) + MatH%*%bdiag(Mat4)
     y_vec <- do.call(cbind, lapply(Yi, function(x){as.vector(x)}))
     xi <- part_xi %*% y_vec
-    eta <- part_eta %*% y_vec
+    zeta <- part_zeta %*% y_vec
     
     part1 <- Mat1%*%xi
-    part2 <- bdiag(psi_temp) %*% eta
+    part2 <- bdiag(psi_temp) %*% zeta
     yhat <- matrix(part1+part2, nc=t, byrow=T) + kronecker(rep(1,Nsubj),mu)
     idx <- rep(1:J, Nsubj)
     Yhat <- lapply(1:J, function(x){yhat[idx==x,]})
@@ -242,224 +236,69 @@ FLFM <- function(Y, Nsubj, argvals, L, sparse=FALSE, rho=0, pve1=0.95, pve2=0.95
   idxC <- which(unlist(lambda_C_temp)==1e-6)
   if(length(idxC) > 0)  xi=xi[-idxC,]
   idxG <- which(unlist(lambda_G_temp)==1e-6)
-  if(length(idxG) > 0)  eta=eta[-idxG,]
+  if(length(idxG) > 0)  zeta=zeta[-idxG,]
   
   
-  return(list(Yhat=Yhat, meanfunctions=mu, xi=xi, eta=eta, C=C_hat, beta=beta_hat, G=G_hat, 
+  return(list(Yhat=Yhat, meanfunctions=mu, xi=xi, zeta=zeta, C=C_hat, beta=beta_hat, G=G_hat, 
               sigma2=sigma2_hat, lambda_C=lambda_C, phi=phi, lambda_G=lambda_G, psi=psi, k=k))
 }
 
 
 
 
-beta_init_func <- function(Y, L){
-  #   ############################################################ 
-  #   #Arguments:
-  #   #Y <- Y_residual (observed Y - mean function)
-  #   #argval - number of points at which functions are observed
-  #   #L -- number of reduced dimensions
-  #   ############################################################  
-  J <- length(Y)
-  Nsubj <- nrow(Y[[1]])
-  Y_vec <- do.call('cbind', lapply(1:J, function(x){colSums(Y[[x]])}))
-  beta_init <- eigs(cov(Y_vec),k=L)$vectors
-}
-
-
-
-Renew_C <- function(Yi, beta, G, sigma2, knots=35, p=3, m=2, Nsubj, L, J){
-  ############################################################ 
-  #Arguments:
-  #Yi -- Yi with (K,J) dimension for each subject
-  #beta -- the beta estimated in the previous step
-  #G -- the estimated self covariance matrices in the previous step
-  #sigma2 -- the sigma2 estimated in the previous step
-  #knots -- the number of equidistant knots for all dimensions; defaults to 35
-  #p -- degrees of B-splines; defaults to 3; details see fbps
-  #m -- order of differencing penalty; defaults to 2; details see fbps
-  #Nsubj -- number of subjects
-  #L -- number of reduced dimensions
-  #J -- number of variables
-  ############################################################ 
-  
-  t <- ncol(G[[1]])
-  C <- list()
-  beta <- as.matrix(beta)
-  
-  for (l in 1:L) {
-    # Sample covariance
-    YY <- lapply(1:Nsubj, function(x){ 
-      Y_star <- Yi[[x]] %*% beta[,l]
-      Y_star %*% t(Y_star) })
-    Cov_Y <- Reduce('+', YY) / Nsubj
-    # Delete variance caused by self part
-    beta_G <- lapply(1:J, function(x){ beta[x,l]^2 * G[[x]] })  
-    self <- Reduce('+', beta_G) 
-    # Delete noise for diagnal elements
-    noise <- sum(beta[,l]^2 * sigma2) * diag(rep(1,t))
-    
-    # Raw covariance matrix for shared part
-    Cl <- Cov_Y - self - noise
-    # Smoothing raw Cl  by the fast bivariate P-spline method
-    BP_Cl <- fbps.cov(as.matrix(Cl), diag.remove=FALSE, knots=knots, p=p, m=m)
-    C[[l]] <- BP_Cl$cov
-  }
-  return(C)
-}
-
-
-
-Renew_beta <- function(Yi, C, beta, G, sigma2, Nsubj, L, J, sparse, rho){
-  ############################################################ 
-  #Arguments:
-  #Yi -- Yi with (K,J) dimension for each subject
-  #C -- the C estimated in the previous step
-  #beta -- beta_old
-  #G -- the estimated self covariance matrices in the previous step
-  #sigma2 -- the sigma2 estimated in the previous step
-  #Nsubj -- number of subjects
-  #L -- number of reduced dimensions
-  #J -- number of variables
-  #sparse -- whether to update beta by sparse pca, default to FALSE. 
-  #rho -- the penalty parameter for sparse pca, only useful when "sparse=TRUE". 
-  ############################################################ 
-  
-  if(L==1){
-    
-    # Compute the sample covairance matrix for updating beta
-    Yi_C_Yi <- lapply(1:Nsubj, function(x) {
-      temp <- t(Yi[[x]]) %*% C[[1]]
-      temp %*% Yi[[x]]})
-    Y_C_Y <- Reduce('+', Yi_C_Yi)
-    # Variance caused by self part
-    C_Gj <- unlist( lapply(1:J, function(x){sum(C[[1]]*G[[x]])}) )
-    self <- diag(C_Gj)
-    # Delete noise for diagnal elements
-    noise  <- sum(diag(C[[1]])) * diag(sigma2)
-    
-    # Update beta 
-    A <- self + noise - Y_C_Y/Nsubj 
-    if(sparse==TRUE){
-      S <- t(A)%*%A / mean(diag(t(A)%*%A))
-      H <- LA_seqadmm(S=S,eta=100,rho=rho,t=10,K=20,etastep=2) #sparse pca
-      beta_temp <- getEigenDecomp(H)[[2]][,ncol(H)]
-    } else{
-      beta_temp <- eigs_sym(A, 1, which="SA")$vectors
-    }
-    beta <- sign(beta_temp[1]) * beta_temp
-    
-  } else {
-    
-    # Compute tr( t(Cl)%*%Cl')
-    ClCl <- matrix(0, nrow=L, ncol=L)
-    for (l1 in 1:L) {
-      for (l2 in l1:L) { 
-        ClCl[l1,l2] <- sum(C[[l1]]*C[[l2]])
-      }
-    }
-    ClCl <- ClCl + t(ClCl) - diag(diag(ClCl))
-    
-    ##############################################
-    # Update beta column by column
-    ##############################################
-    for(l in 1:L){ 
-      
-      # Compute the intersect part with beta_l'
-      Cl_beta0 <- lapply((1:L)[-l], function(x){ClCl[l,x] * beta[,x] %*% t(beta[,x])}) 
-      Cl_beta <- Reduce('+', Cl_beta0)
-      # Compute the sample covairance matrix for updating beta
-      Yi_Cl_Yi <- lapply(1:Nsubj, function(x) {
-        temp <- t(Yi[[x]]) %*% C[[l]]
-        temp %*% Yi[[x]]})
-      Y_Cl_Y <- Reduce('+', Yi_Cl_Yi)
-      # Variance caused by self part
-      Cl_Gj <- unlist( lapply(1:J, function(x){sum(C[[l]]*G[[x]])}) )
-      self <- diag(Cl_Gj)
-      # Delete noise for diagnal elements
-      noise <- sum(diag(C[[l]])) * diag(sigma2)
-      
-      # Update beta 
-      A <- Cl_beta + self + noise - Y_Cl_Y/Nsubj 
-      if(sparse==TRUE){
-        S <- -A / mean(abs(diag(A)))
-        if(l==1) { # sparse beta
-          H <- LA_seqadmm(S=S,eta=100,rho=rho,t=10,K=20,etastep=2)
-          beta_temp <- getEigenDecomp(H)[[2]][,ncol(H)]
-          beta[,l] <- sign(beta_temp[1]+1e-6) * beta_temp
-        } else {
-          PrevPi <- beta[,1:(l-1)]%*%t(beta[,1:(l-1)])
-          PrevPi_Eig <- getEigenDecomp(diag(1,J)-PrevPi)
-          PrevPi_Eig[[1]] <- rev(PrevPi_Eig[[1]])
-          PrevPi_Eig[[2]] <- PrevPi_Eig[[2]][,ncol(PrevPi_Eig[[2]]):1]
-          H <- LA_seqadmm(S=S,PrevPi_Eig=PrevPi_Eig,PrevPi_d=l-1,eta=100,rho=rho,t=10,K=20,etastep=2)
-          beta_temp <- getEigenDecomp(H)[[2]][,ncol(H)]
-          beta[,l] <- sign(beta_temp[1]+1e-6) * beta_temp
-        }
-      } else{
-        if(l!=1){ # general beta
-          P <- diag(J) - beta[,1:(l-1)] %*% t(beta[,1:(l-1)])
-          A <- P %*% A %*% P
-        }
-        beta_temp <- eigs_sym(A, 1, which="SA")$vectors
-        beta[,l] <- sign(beta_temp[1]+1e-6) * beta_temp
-      } # end if sparse
-      
-    } # end for loop
-  } # end if else
-  return(beta)
-}
-
-
-
-Renew_G_sigma <- function(Y_resid, C, beta, sigma2, knots=35, p=3, m=2, Nsubj, L, J){
-  ############################################################ 
-  #Arguments:
-  #Y_resid -- (observed Y - mean function)
-  #C -- the C estimated in the previous step
-  #beta -- the beta estimated in the previous step
-  #sigma2 <- sigma2_old
-  #knots -- list of two vectors of knots or number of equidistant knots for all dimensions; defaults to 35
-  #p -- degrees of B-splines; defaults to 3; details see fbps
-  #m -- order of differencing penalty; defaults to 2; details see fbps
-  #Nsubj -- number of subjects
-  #L -- number of reduced dimensions
-  #J -- number of variables
-  ############################################################ 
-  
-  t <- ncol(C[[1]])
-  G <- list()
-  beta <- as.matrix(beta)
-  
-  for (j in 1:J) {
-    
-    ##############################################
-    # Estimate Gj
-    ##############################################
-    Cov_Y <- t(Y_resid[[j]]) %*% Y_resid[[j]] / Nsubj
-    # Variance caused by shared part
-    share <- Reduce('+', lapply(1:L, function(x){beta[j,x]^2 * C[[x]] })) 
-    # Noise for diagnal elements
-    noise <- diag(rep(sigma2[j],t))
-    
-    # Raw covariance matrix for self part
-    Gj <- Cov_Y - share - noise
-    # Smoothing raw Gj  by the fast bivariate P-spline method
-    BP_Gj <- fbps.cov(as.matrix(Gj), diag.remove=FALSE, knots=knots, p=p, m=m)
-    G[[j]] <- BP_Gj$cov
-    
-    ##############################################
-    # Estimate sigma
-    ##############################################
-    Cov_Y <- sum(Y_resid[[j]]^2) / Nsubj
-    # Variance caused by shared part
-    share <- Reduce('+', lapply(1:L, function(x){beta[j,x]^2 * sum(diag(C[[x]]))})) 
-    # Variance caused by self part
-    self <- sum(diag(G[[j]]))
-    # Estimate sigma
-    sigma2[j] <- (Cov_Y - share - self) / t
-  }
-  
-  return(list(G=G, sigma2=sigma2))
-}
-
-
+# If do projection to get fitted values and scores
+# if(fit){
+#   # Assign global eigenfunctions
+#   efuncs1 <- list()
+#   index <- 0
+#   for(l in 1:L){
+#     #efuncs1[[l]] <- kronecker(beta_hat[,l], phi[[l]])
+#     efuncs1[[l]] <- kronecker(rep(1,J), phi[[l]])
+#     for(m in 1:ncol(efuncs1[[l]])){
+#       index <- index + 1
+#       assign(paste("Efunc1", index, sep=""), efuncs1[[l]][,m], envir=parent.frame()) #make it global variable
+#     }
+#   }
+#   
+#   max_n <- max(unlist(lapply(lambda_G, function(x)length(x))))
+#   efuncs2 <- do.call(rbind, lapply(1:J, function(x){
+#     num <- length(lambda_G[[x]])
+#     if(num<max_n){return(cbind(psi[[x]],matrix(0,nr=t,nc=(max_n-num))))}
+#     return(psi[[x]])
+#   }))
+#   for(r in 1:max_n){
+#     assign(paste("Efunc2",r,sep=""), efuncs2[,r], envir = parent.frame()) #make it global variable
+#   }
+#   
+#   
+#   yhat <- list()
+#   xi <- matrix(NA, nrow=Nsubj, ncol=index)
+#   eta0 <- matrix(NA, nrow=Nsubj, ncol=max_n*J)
+#   g_var <- rep(as.factor(paste(1:J,sep="")),each=t) #indicator for each subjects's variables
+#   #phimodel <- paste("s(Efunc1",1:index,", bs='re') ", collapse="+", sep="")
+#   phimodel <- paste("s(g_var, by=Efunc1",1:index,", bs='re') ", collapse="+", sep="")
+#   psimodel <- paste("s(g_var, by=Efunc2",1:max_n,", bs='re') ", collapse="+", sep="")
+#   flags <- rep(1:L, unlist(lapply(1:L,function(x){length(lambda_C[[x]])})))
+#   for (i in 1:Nsubj) {
+#     # Assign model
+#     y <- as.vector(Yi[[i]])
+#     formula <- paste("y ~ ", phimodel, "+", psimodel)
+#     # Fit model and estimate scores
+#     fitting <- bam(as.formula(formula), drop.intercept=T)
+#     #xi[i,] <- fitting$coefficients[1:index]
+#     #eta0[i,] <- fitting$coefficients[-(1:index)]
+#     xi[i,] <- unlist(lapply(1:index, function(x){
+#       temp <- fitting$coefficients[((x-1)*J+1):(x*J)]
+#       sum(temp)/sum(beta_hat[,flags[x]])
+#       }))
+#     eta0[i,] <- fitting$coefficients[-(1:(index*J))]
+#     
+#     yhat[[i]] <- matrix(fitting$fitted.values, nc=t, byrow=T) + mu
+#   }
+#   
+#   Yhat <- lapply(1:J, function(x){do.call("rbind",lapply(1:Nsubj, function(sub){yhat[[sub]][x,]}))})
+#   eta <- lapply(1:J, function(x){
+#     start <- max_n*(x-1)+1
+#     end <- max_n*(x-1) + length(lambda_G[[x]])
+#     eta0[,start:end]})
+# }

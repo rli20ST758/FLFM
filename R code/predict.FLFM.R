@@ -1,5 +1,5 @@
 
-predict.FLFM <- function(object, newdata, argvals){
+predict.LFM <- function(object, newdata, argvals){
   ############################################################ 
   #Arguments:
   #object -- an object returned by LFM
@@ -60,7 +60,7 @@ predict.FLFM <- function(object, newdata, argvals){
   # 
   # y_pred <- list()
   # xi <- matrix(NA, nrow=Nsubj, ncol=index)
-  # eta0 <- matrix(NA, nrow=Nsubj, ncol=max_n*J)
+  # zeta0 <- matrix(NA, nrow=Nsubj, ncol=max_n*J)
   # g_var <- rep(as.factor(paste(1:J,sep="")),each=t) 
   # phimodel <- paste("s(g_var, by=Efunc1",1:index,", bs='re') ", collapse="+", sep="")
   # psimodel <- paste("s(g_var, by=Efunc2",1:max_n,", bs='re') ", collapse="+", sep="")
@@ -74,15 +74,15 @@ predict.FLFM <- function(object, newdata, argvals){
   #     temp <- fitting$coefficients[((x-1)*J+1):(x*J)]
   #     sum(temp)/sum(beta_hat[,flags[x]])
   #   }))
-  #   eta0[i,] <- fitting$coefficients[-(1:(index*J))]
+  #   zeta0[i,] <- fitting$coefficients[-(1:(index*J))]
   #   y_pred[[i]] <- matrix(fitting$fitted.values, nc=t, byrow=T) + mu
   # }
   # 
   # Y_pred <- lapply(1:J, function(x){do.call("rbind",lapply(1:Nsubj, function(sub){y_pred[[sub]][x,]}))})
-  # eta <- lapply(1:J, function(x){
+  # zeta <- lapply(1:J, function(x){
   #   start <- max_n*(x-1)+1
   #   end <- max_n*(x-1) + length(lambda_G[[x]])
-  #   eta0[,start:end]})
+  #   zeta0[,start:end]})
   
   # set NULL to 0
   lambda_C_temp = lambda_C
@@ -118,13 +118,13 @@ predict.FLFM <- function(object, newdata, argvals){
   MatG <- - invD%*%C%*%MatE
   MatH <- invD - invD%*%C%*%MatF
   part_xi <- MatE%*%t(Mat2) + MatF%*%bdiag(Mat4)
-  part_eta <- MatG%*%t(Mat2) + MatH%*%bdiag(Mat4)
+  part_zeta <- MatG%*%t(Mat2) + MatH%*%bdiag(Mat4)
   y_vec <- do.call(cbind, lapply(Yi, function(x){as.vector(x)}))
   xi <- part_xi %*% y_vec
-  eta <- part_eta %*% y_vec
+  zeta <- part_zeta %*% y_vec
   
   part1 <- Mat1%*%xi
-  part2 <- bdiag(psi_temp) %*% eta
+  part2 <- bdiag(psi_temp) %*% zeta
   y_pred <- matrix(part1+part2, nc=t, byrow=T) + kronecker(rep(1,Nsubj),mu)
   idx <- rep(1:J, Nsubj)
   Y_pred <- lapply(1:J, function(x){y_pred[idx==x,]})
@@ -134,10 +134,10 @@ predict.FLFM <- function(object, newdata, argvals){
   idxC <- which(unlist(lambda_C_temp)==1e-6)
   if(length(idxC) > 0)  xi=as.matrix(xi[-idxC,])
   idxG <- which(unlist(lambda_G_temp)==1e-6)
-  if(length(idxG) > 0)  eta=as.matrix(eta[-idxG,])
+  if(length(idxG) > 0)  zeta=as.matrix(zeta[-idxG,])
   
   
-  return(list(Ypred=Y_pred, xi=xi, eta=eta))
+  return(list(Ypred=Y_pred, xi=xi, zeta=zeta))
   
 }
 
